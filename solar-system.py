@@ -1,4 +1,5 @@
 import math
+import random
 from typing import List
 import pygame
 
@@ -75,35 +76,70 @@ class Planet:
                 self.vy = add(self.vy, accel)
         
         self.pos = add(self.pos, self.vy)
+    
+    @staticmethod
+    def fullPresets():
+        return (
+            Planet((0,0), 5, 50, "yellow"),
+            Planet((0,0), 0.1, 10, "gray")
+        )
+    
+    @staticmethod
+    def getPreset(index:int):
+        return Planet.fullPresets()[index]
 
 class Input:
     def __init__(self):
         self.screenPos = (0, 0)
-        self.mouseClickPos = None
+        self.rightClickPos = None
         self.clickScreenPos = (0, 0)
+
+        self.planetPos = None
+        self.preset = None
     
     def checkInput(self):
+        global planets
+
         mousePos = pygame.mouse.get_pos()
         events = pygame.event.get()
         buttons = pygame.mouse.get_pressed(num_buttons = 3)
 
         for event in events:
-            if buttons[2] and event.type == pygame.MOUSEBUTTONDOWN and self.mouseClickPos == None:
-                self.mouseClickPos = mousePos
-                self.clickScreenPos = self.screenPos
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if buttons[2]:
+                    self.rightClickPos = mousePos
+                    self.clickScreenPos = self.screenPos
+                if buttons[0]:
+                    self.planetPos = mousePos
+                    self.preset = Planet.getPreset(random.randint(0,len(Planet.fullPresets())-1))
 
-            if event.type == pygame.MOUSEBUTTONUP and self.mouseClickPos != None:
-                self.mouseClickPos = None
+            if event.type == pygame.MOUSEBUTTONUP:
+                self.rightClickPos = None if self.rightClickPos != None else self.rightClickPos
+                if self.planetPos != None:
+                    planets.append(Planet(
+                        self.planetPos,
+                        self.preset.mass,
+                        self.preset.radius,
+                        self.preset.color,
+                        div(sub(self.planetPos, mousePos), 1000)
+                    ))
+                    self.planetPos = None
 
-        if self.mouseClickPos != None:
-            self.screenPos = sub(add(self.clickScreenPos, mousePos), self.mouseClickPos)
+        if self.rightClickPos != None:
+            self.screenPos = sub(add(self.clickScreenPos, mousePos), self.rightClickPos)
 
-def drawCanvas(planets:List[Planet], screenPos:list):
-    # draw over last frame
-    screen.fill("black")
-
+def drawCanvas(planets:List[Planet], input):
     for p in planets:
-        pygame.draw.circle(screen, p.color, add(screenPos, p.pos), p.radius)
+        pygame.draw.circle(screen, p.color, add(input.screenPos, p.pos), p.radius)
+    
+    if input.planetPos != None:
+        pygame.draw.circle(screen, input.preset.color, add(input.screenPos, input.planetPos), input.preset.radius)
+
+    # draw over last frame
+    background = pygame.Surface(screen.get_size())
+    background.set_alpha(5)
+    background.fill("black")
+    screen.blit(background, (0,0))
 
     # update display
     pygame.display.update()
@@ -116,7 +152,7 @@ planets = [Planet((350, 350), 0.1, 10, "gray", (0.04, -0.04)),
 try:
     while True:
         input.checkInput()
-        drawCanvas(planets, input.screenPos)
+        drawCanvas(planets, input)
 
         for p in planets:
             p.update(planets)
