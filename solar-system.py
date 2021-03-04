@@ -3,7 +3,8 @@ import random
 from typing import List, Union
 import pygame
 from pygame_widgets import Slider
-# TODO: add color labels to sliders
+
+pygame.init()
 
 # CONSTANTS
 G = 0.01
@@ -11,8 +12,6 @@ width  = 700
 height = 700
 sliderPos = (10, 10)
 sliderSize = (100, 10)
-
-pygame.init()
 screen = pygame.display.set_mode((width, height))
 
 
@@ -59,7 +58,8 @@ class Planet:
         self.vy = (0, 0) if vy is None else vy
 
         self.displayMenu = False
-        self.massSlider = None
+        # mass, radius
+        self.sliders = [None, None]
     
     # static list of all planets
     planets = []
@@ -77,17 +77,18 @@ class Planet:
         self.pos = add(self.pos, self.vy)
 
         if self.displayMenu:
-            self.mass = max(self.massSlider.getValue(), 1)
+            self.mass = max(self.sliders[0].getValue(), 1)
+            self.radius = max(self.sliders[1].getValue(), 1)
     
-    def setMassSlider(self, sliderCount:int):
-        self.massSlider = Slider(
-            screen,
-            sliderPos[0],
-            sliderPos[1]*sliderCount+sliderSize[1]*(sliderCount-1),
-            sliderSize[0],
-            sliderSize[1],
-            min = 0, max = 100, colour = (255,255,255), handleColour = (100,100,100), initial = self.mass
-        )
+    def setSliders(self, sliderCount:int):
+        self.sliders[0] = self.makeSlider(sliderCount, 0, 100, self.mass, (100,100,100))
+        sliderCount+=1
+        self.sliders[1] = self.makeSlider(sliderCount, 0, 50, self.radius, (50,50,50))
+    
+    def makeSlider(self, sliderCount:int, min:int, max:int, initial:int, color):
+        return Slider(
+            screen, sliderPos[0], sliderPos[1]*(sliderCount+1)+sliderSize[1]*sliderCount, sliderSize[0], sliderSize[1],
+            min = min, max = max, initial = initial, colour = self.color, handleColour = color)
     
     def mouseSelected(self, mousePos:tuple, screenPos:tuple):
         return (distance(self.pos, sub(mousePos, screenPos)) < self.radius)
@@ -129,15 +130,13 @@ class Input:
     sliderCount = 0
     
     def mouseOnSlider(self, mousePos:list):
-        padding = 10
+        padding = sliderPos[0]
         max = sliderPos[1]*self.sliderCount+sliderSize[1]*self.sliderCount
         x = mousePos[0]
         y = mousePos[1]
         return x > 0 and x < sliderSize[0]+padding and y > 0 and y < max+padding
     
     def checkInput(self):
-        global run
-
         events = pygame.event.get()
         mousePos = pygame.mouse.get_pos()
         buttons = pygame.mouse.get_pressed(num_buttons = 3)
@@ -162,8 +161,8 @@ class Input:
                     selected = Planet.mouseSelectedAll(mousePos, self.screenPos)
                     if selected is not None:
                         selected.displayMenu = not selected.displayMenu
-                        self.sliderCount += 1 if selected.displayMenu else -1
-                        selected.setMassSlider(self.sliderCount)
+                        selected.setSliders(self.sliderCount)
+                        self.sliderCount += len(selected.sliders) if selected.displayMenu else -len(selected.sliders)
 
                     elif not self.mouseOnSlider(mousePos):
                         self.planetPos = sub(mousePos, self.screenPos)
@@ -191,8 +190,9 @@ def drawCanvas(planets:List[Planet], input:Input):
     for p in planets:
         pygame.draw.circle(screen, p.color, add(input.screenPos, p.pos), p.radius)
         if p.displayMenu:
-            p.massSlider.draw()
-            p.massSlider.listen(pygame.event.get())
+            for s in p.sliders:
+                s.draw()
+                s.listen(pygame.event.get())
     
     if input.planetPos != None:
         pygame.draw.circle(screen, input.preset.color, add(input.screenPos, input.planetPos), input.preset.radius)
@@ -209,10 +209,9 @@ def drawCanvas(planets:List[Planet], input:Input):
 input = Input()
 Planet.planets.append(Planet((350, 350), 0.1, 10, "gray", (0.04, -0.04)))
 Planet.planets.append(Planet((250, 250), 50, 30, "deepskyblue"))
-run = True
 
 try:
-    while run:
+    while True:
         input.checkInput()
         drawCanvas(Planet.planets, input)
 
