@@ -96,7 +96,6 @@ class Planet:
     def mouseSelectedAll(mousePos:tuple, screenPos:tuple):
         for p in Planet.planets:
             if p.mouseSelected(mousePos, screenPos):
-                print(p.color)
                 return p
 
         return None
@@ -143,6 +142,8 @@ class Input:
         mousePos = pygame.mouse.get_pos()
         buttons = pygame.mouse.get_pressed(num_buttons = 3)
 
+        test = Planet.mouseSelectedAll(mousePos, self.screenPos)
+
         for event in events:
             # window closing
             if event.type == pygame.QUIT:
@@ -158,13 +159,11 @@ class Input:
                 # create planet with left click
                 if buttons[0]:
                     # check if mouse is selecting planet
-                    selectedPlanet = Planet.mouseSelectedAll(mousePos, self.screenPos)
-                    if selectedPlanet is not None:
-                        planetSelected = True
-                        p.displayMenu = not p.displayMenu
-                        self.sliderCount += 1 if p.displayMenu else -1
-                        p.setMassSlider(self.sliderCount)
-                        print(p.color)
+                    selected = Planet.mouseSelectedAll(mousePos, self.screenPos)
+                    if selected is not None:
+                        selected.displayMenu = not selected.displayMenu
+                        self.sliderCount += 1 if selected.displayMenu else -1
+                        selected.setMassSlider(self.sliderCount)
 
                     elif not self.mouseOnSlider(mousePos):
                         self.planetPos = sub(mousePos, self.screenPos)
@@ -210,8 +209,8 @@ def drawCanvas(planets:List[Planet], input:Input):
 input = Input()
 Planet.planets.append(Planet((350, 350), 0.1, 10, "gray", (0.04, -0.04)))
 Planet.planets.append(Planet((250, 250), 50, 30, "deepskyblue"))
-
 run = True
+
 try:
     while run:
         input.checkInput()
