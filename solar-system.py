@@ -83,7 +83,7 @@ class Planet:
     def setSliders(self, sliderCount:int):
         self.sliders[0] = self.makeSlider(sliderCount, 0, 100, self.mass, (100,100,100))
         sliderCount+=1
-        self.sliders[1] = self.makeSlider(sliderCount, 0, 50, self.radius, (50,50,50))
+        self.sliders[1] = self.makeSlider(sliderCount, 0, 75, self.radius, (50,50,50))
     
     def makeSlider(self, sliderCount:int, min:int, max:int, initial:int, color):
         return Slider(
@@ -94,6 +94,19 @@ class Planet:
         return (distance(self.pos, sub(mousePos, screenPos)) < self.radius)
     
     @staticmethod
+    def getFuture(iterations:int, updateInterval:int, planet):
+        output = []
+        tempPlanets = [p.copy() for p in Planet.planets]
+        tempPlanets.append(planet)
+        for i in range(iterations):
+            for p in tempPlanets:
+                p.update(tempPlanets)
+            if i % updateInterval == 0:
+                output.append(tempPlanets[len(tempPlanets)-1].pos)
+        
+        return output
+
+    @staticmethod
     def mouseSelectedAll(mousePos:tuple, screenPos:tuple):
         for p in Planet.planets:
             if p.mouseSelected(mousePos, screenPos):
@@ -101,19 +114,17 @@ class Planet:
 
         return None
     
-    @staticmethod
-    def fullPresets():
-        return (
-            Planet((0,0), 10, 50, "yellow"),
-            Planet((0,0), 0.1, 10, "gray"),
-            Planet((0,0), 1, 15, "blue")
-        )
-    
     # random preset planet to place
     @staticmethod
     def getRandomPreset():
-        index = random.randint(0,len(Planet.fullPresets())-1)
-        return Planet.fullPresets()[index]
+        presets = (Planet((0,0), 10, 50, "yellow"),
+                   Planet((0,0), 0.1, 10, "gray"),
+                   Planet((0,0), 1, 15, "blue"))
+
+        return presets[random.randint(0,len(presets)-1)]
+    
+    def copy(self):
+        return Planet((self.pos[0], self.pos[1]), self.mass, self.radius, self.color, (self.vy[0], self.vy[1]))
 
 class Input:
     def __init__(self, paused=None):
@@ -163,7 +174,7 @@ class Input:
                         selected.displayMenu = not selected.displayMenu
                         selected.setSliders(self.sliderCount)
                         self.sliderCount += len(selected.sliders) if selected.displayMenu else -len(selected.sliders)
-
+                    # create planet
                     elif not self.mouseOnSlider(mousePos):
                         self.planetPos = sub(mousePos, self.screenPos)
                         self.preset = Planet.getRandomPreset()
@@ -172,7 +183,7 @@ class Input:
                 # reset right click pos
                 self.rightClickPos = None if self.rightClickPos != None else self.rightClickPos
 
-                # if the planet position was being selected
+                # place planet
                 if self.planetPos != None:
                     Planet.planets.append(Planet(self.planetPos, self.preset.mass, self.preset.radius,
                         self.preset.color, div(sub(self.planetPos, sub(mousePos, self.screenPos)), 1000)))
@@ -182,20 +193,32 @@ class Input:
                 # pause
                 if event.key == pygame.K_SPACE:
                     self.paused = not self.paused
+                # remove all sliders
+                if event.key == pygame.K_ESCAPE:
+                    self.sliderCount = 0
+                    for p in Planet.planets:
+                        p.displayMenu = False
+                if event.key == pygame.K_f:
+                    self.screenPos = (0, 0)
 
+        # constantly update screen pos while clicked
         if self.rightClickPos != None:
             self.screenPos = sub(add(self.clickScreenPos, mousePos), self.rightClickPos)
 
 def drawCanvas(planets:List[Planet], input:Input):
     for p in planets:
-        pygame.draw.circle(screen, p.color, add(input.screenPos, p.pos), p.radius)
+        pygame.draw.circle(screen, p.color, mul(add(input.screenPos, p.pos), input.zoom), p.radius)
         if p.displayMenu:
             for s in p.sliders:
                 s.draw()
                 s.listen(pygame.event.get())
     
+    # currently placing a planet
     if input.planetPos != None:
         pygame.draw.circle(screen, input.preset.color, add(input.screenPos, input.planetPos), input.preset.radius)
+        # draws path of planet, really resource intensive and doesnt work with transparency
+        # for pos in Planet.getFuture(10000, 1000, Planet(input.planetPos, input.preset.mass, input.preset.radius, input.preset.color, div(sub(input.planetPos, sub(pygame.mouse.get_pos(), input.screenPos)), 1000))):\
+        #     pygame.draw.circle(screen, (100,100,100), add(input.screenPos, pos), 5)
 
     # draw over last frame
     background = pygame.Surface(screen.get_size())
